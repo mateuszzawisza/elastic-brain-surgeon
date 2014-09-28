@@ -8,10 +8,6 @@ import (
 	"net/http"
 )
 
-func main() {
-	connectToNode()
-}
-
 type ClusterState struct {
 	MasterNode  string          `json:"master_node"`
 	ClusterName string          `json:"cluster_name"`
@@ -25,7 +21,12 @@ type Node struct {
 	} `json:"attributes"`
 }
 
-func connectToNode() ClusterState {
+func main() {
+	cs := getClusterState()
+	printClusterState(cs)
+}
+
+func getClusterState() ClusterState {
 	resp, err := http.Get("http://localhost:9200/_cluster/state/nodes,master_node")
 	if err != nil {
 		log.Panic("could not connect to node")
@@ -34,10 +35,14 @@ func connectToNode() ClusterState {
 	body, err := ioutil.ReadAll(resp.Body)
 	var cs ClusterState
 	json.Unmarshal(body, &cs)
-	fmt.Printf("master node: %s\n", cs.MasterNode)
-	fmt.Printf("cluster name: %s\n", cs.ClusterName)
-	for key, value := range cs.Nodes {
-		fmt.Printf("Node: %s => %s (%s) \n", key, value.Name, value.TransportAddress)
-	}
 	return cs
+}
+
+func printClusterState(cs ClusterState) {
+	fmt.Printf("master node: %s - %s (%s)\n", cs.MasterNode, cs.Nodes[cs.MasterNode].Name, cs.Nodes[cs.MasterNode].TransportAddress)
+	fmt.Printf("cluster name: %s\n", cs.ClusterName)
+	fmt.Printf("Nodes in the cluster: \n")
+	for key, value := range cs.Nodes {
+		fmt.Printf("%s => %s (%s) \n", key, value.Name, value.TransportAddress)
+	}
 }
