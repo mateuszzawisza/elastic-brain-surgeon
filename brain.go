@@ -24,6 +24,18 @@ type Node struct {
 	} `json:"attributes"`
 }
 
+type NodeStatus struct {
+	Status int    `json:"status"`
+	Name   string `json:"name"`
+}
+
+type ElasticsearchNode struct {
+	Name           string
+	Status         int
+	MasterNode     string
+	NodesInCluster int
+}
+
 var esAddresses addresses
 
 func init() {
@@ -32,10 +44,26 @@ func init() {
 
 func main() {
 	flag.Parse()
-	for _, node := range esAddresses {
-		cs := getClusterState(node)
-		printClusterState(cs)
+	nodes := fetchNodes(esAddresses)
+	for _, node := range nodes {
+		printNodeStatus(node)
 	}
+}
+
+func fetchNodes(esAddresses []string) []ElasticsearchNode {
+	nodes := make([]ElasticsearchNode, len(esAddresses))
+	for i, node := range esAddresses {
+		ns := getNodeStatus(node)
+		cs := getClusterState(node)
+		node := ElasticsearchNode{
+			ns.Name,
+			ns.Status,
+			cs.Nodes[cs.MasterNode].Name,
+			len(cs.Nodes),
+		}
+		nodes[i] = node
+	}
+	return nodes
 }
 
 func getClusterState(address string) ClusterState {
@@ -51,13 +79,30 @@ func getClusterState(address string) ClusterState {
 	return cs
 }
 
+func getNodeStatus(address string) NodeStatus {
+	statusEndpoint := fmt.Sprintf("http://%s", address)
+	resp, err := http.Get(statusEndpoint)
+	if err != nil {
+		log.Panic("could not connect to node")
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	var ns NodeStatus
+	json.Unmarshal(body, &ns)
+	return ns
+}
+
 func printClusterState(cs ClusterState) {
 	fmt.Printf("master node: %s - %s (%s)\n", cs.MasterNode, cs.Nodes[cs.MasterNode].Name, cs.Nodes[cs.MasterNode].TransportAddress)
-	fmt.Printf("cluster name: %s\n", cs.ClusterName)
-	fmt.Printf("Nodes in the cluster: \n")
-	for key, value := range cs.Nodes {
-		fmt.Printf("%s => %s (%s) \n", key, value.Name, value.TransportAddress)
-	}
+	//	fmt.Printf("cluster name: %s\n", cs.ClusterName)
+	//	fmt.Printf("Nodes in the cluster: \n")
+	//	for key, value := range cs.Nodes {
+	//		fmt.Printf("%s => %s (%s) \n", key, value.Name, value.TransportAddress)
+	//	}
+}
+
+func printNodeStatus(ns ElasticsearchNode) {
+	fmt.Printf("node: %s (status: %d) => master: %s nodes: %d\n", ns.Name, ns.Status, ns.MasterNode, ns.NodesInCluster)
 }
 
 // address flag
