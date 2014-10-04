@@ -114,15 +114,6 @@ func getNodeStatus(address string) NodeStatus {
 	return ns
 }
 
-func printClusterState(cs ClusterState) {
-	fmt.Printf("master node: %s - %s (%s)\n", cs.MasterNode, cs.Nodes[cs.MasterNode].Name, cs.Nodes[cs.MasterNode].TransportAddress)
-	//	fmt.Printf("cluster name: %s\n", cs.ClusterName)
-	//	fmt.Printf("Nodes in the cluster: \n")
-	//	for key, value := range cs.Nodes {
-	//		fmt.Printf("%s => %s (%s) \n", key, value.Name, value.TransportAddress)
-	//	}
-}
-
 func printNodeStatus(ns ElasticsearchNode) {
 	fmt.Printf("node: %s (status: %d) => master: %s nodes: %d\n", ns.Name, ns.Status, ns.MasterNode, ns.NodesInCluster)
 }
