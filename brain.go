@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -37,19 +38,24 @@ type ElasticsearchNode struct {
 }
 
 var esAddresses addresses
+var strict bool
 
 func init() {
 	flag.Var(&esAddresses, "elasticsearch-list", "comma sperated list of elasticsearch instances addresses")
+	flag.BoolVar(&strict, "strict", false, "Strict exit status")
 }
 
 func main() {
 	flag.Parse()
 	nodes := fetchNodes(esAddresses)
 	split := checkForSplitBrain(nodes)
-	if split == true {
-		fmt.Println("The brain is split")
+	if split {
+		fmt.Println("The brain is split!")
 		for _, node := range nodes {
 			printNodeStatus(node)
+		}
+		if strict {
+			os.Exit(1)
 		}
 	} else {
 		fmt.Println("Everything is ok")
@@ -59,7 +65,7 @@ func main() {
 
 func checkForSplitBrain(nodes []ElasticsearchNode) bool {
 	for i := 1; i < len(nodes); i++ {
-		if nodes[i].MasterNode == nodes[i-1].MasterNode {
+		if nodes[i].MasterNode != nodes[i-1].MasterNode {
 			return false
 		}
 	}
