@@ -45,9 +45,25 @@ func init() {
 func main() {
 	flag.Parse()
 	nodes := fetchNodes(esAddresses)
-	for _, node := range nodes {
-		printNodeStatus(node)
+	split := checkForSplitBrain(nodes)
+	if split == true {
+		fmt.Println("The brain is split")
+		for _, node := range nodes {
+			printNodeStatus(node)
+		}
+	} else {
+		fmt.Println("Everything is ok")
 	}
+
+}
+
+func checkForSplitBrain(nodes []ElasticsearchNode) bool {
+	for i := 1; i < len(nodes); i++ {
+		if nodes[i].MasterNode == nodes[i-1].MasterNode {
+			return false
+		}
+	}
+	return true
 }
 
 func fetchNodes(esAddresses []string) []ElasticsearchNode {
