@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type ClusterState struct {
@@ -21,13 +24,23 @@ type Node struct {
 	} `json:"attributes"`
 }
 
-func main() {
-	cs := getClusterState()
-	printClusterState(cs)
+var esAddresses addresses
+
+func init() {
+	flag.Var(&esAddresses, "elasticsearch-list", "comma sperated list of elasticsearch instances addresses")
 }
 
-func getClusterState() ClusterState {
-	resp, err := http.Get("http://localhost:9200/_cluster/state/nodes,master_node")
+func main() {
+	flag.Parse()
+	for _, node := range esAddresses {
+		cs := getClusterState(node)
+		printClusterState(cs)
+	}
+}
+
+func getClusterState(address string) ClusterState {
+	statusEndpoint := fmt.Sprintf("http://%s/_cluster/state/nodes,master_node", address)
+	resp, err := http.Get(statusEndpoint)
 	if err != nil {
 		log.Panic("could not connect to node")
 	}
@@ -45,4 +58,21 @@ func printClusterState(cs ClusterState) {
 	for key, value := range cs.Nodes {
 		fmt.Printf("%s => %s (%s) \n", key, value.Name, value.TransportAddress)
 	}
+}
+
+// address flag
+type addresses []string
+
+func (i *addresses) String() string {
+	return fmt.Sprint(*i)
+}
+
+func (i *addresses) Set(value string) error {
+	if len(*i) > 0 {
+		return errors.New("Addresses flag already set")
+	}
+	for _, address := range strings.Split(value, ",") {
+		*i = append(*i, address)
+	}
+	return nil
 }
