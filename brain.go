@@ -39,10 +39,12 @@ type ElasticsearchNode struct {
 
 var esAddresses addresses
 var strict bool
+var printStatus bool
 
 func init() {
 	flag.Var(&esAddresses, "elasticsearch-list", "comma sperated list of elasticsearch instances addresses")
 	flag.BoolVar(&strict, "strict", false, "Strict exit status")
+	flag.BoolVar(&printStatus, "print", false, "Print cluster status")
 }
 
 func main() {
@@ -51,14 +53,16 @@ func main() {
 	split := checkForSplitBrain(nodes)
 	if split {
 		fmt.Println("The brain is split!")
-		for _, node := range nodes {
-			printNodeStatus(node)
-		}
 		if strict {
 			os.Exit(1)
 		}
 	} else {
 		fmt.Println("Everything is ok")
+	}
+	if printStatus {
+		for _, node := range nodes {
+			printNodeStatus(node)
+		}
 	}
 
 }
