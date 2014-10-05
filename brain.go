@@ -53,6 +53,7 @@ func main() {
 	split := checkForSplitBrain(nodes)
 	if split {
 		fmt.Println("The brain is split!")
+		printStatus = true
 		if strict {
 			os.Exit(1)
 		}
@@ -60,9 +61,8 @@ func main() {
 		fmt.Println("Everything is ok")
 	}
 	if printStatus {
-		for _, node := range nodes {
-			printNodeStatus(node)
-		}
+		masters := gatherMasters(nodes)
+		printMasterNodes(masters)
 	}
 
 }
@@ -118,8 +118,21 @@ func getNodeStatus(address string) NodeStatus {
 	return ns
 }
 
-func printNodeStatus(ns ElasticsearchNode) {
-	fmt.Printf("node: %s (status: %d) => master: %s nodes: %d\n", ns.Name, ns.Status, ns.MasterNode, ns.NodesInCluster)
+func printMasterNodes(ms map[string][]ElasticsearchNode) {
+	for master, nodes := range ms {
+		fmt.Printf("master: %s \n", master)
+		for i, node := range nodes {
+			fmt.Printf("  node %d: %s \n", i, node.Name)
+		}
+	}
+}
+
+func gatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
+	mappedMasters := make(map[string][]ElasticsearchNode)
+	for _, node := range nodes {
+		mappedMasters[node.MasterNode] = append(mappedMasters[node.MasterNode], node)
+	}
+	return mappedMasters
 }
 
 // address flag
