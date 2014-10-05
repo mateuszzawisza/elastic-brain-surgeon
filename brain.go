@@ -65,7 +65,7 @@ func main() {
 
 func checkForSplitBrain(nodes []ElasticsearchNode) bool {
 	for i := 1; i < len(nodes); i++ {
-		if nodes[i].MasterNode != nodes[i-1].MasterNode {
+		if nodes[i].MasterNode == nodes[i-1].MasterNode {
 			return false
 		}
 	}
