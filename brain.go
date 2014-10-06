@@ -42,6 +42,8 @@ var esAddresses addresses
 var strict bool
 var printStatus bool
 
+var exitStatus int = 0
+
 func init() {
 	flag.Var(&esAddresses, "elasticsearch-list", "comma sperated list of elasticsearch instances addresses")
 	flag.BoolVar(&strict, "strict", false, "Strict exit status")
@@ -56,7 +58,7 @@ func main() {
 		fmt.Println("The brain is split!")
 		printStatus = true
 		if strict {
-			os.Exit(1)
+			exitStatus = 1
 		}
 	} else {
 		fmt.Println("Everything is ok")
@@ -68,6 +70,7 @@ func main() {
 	if len(nodesFailed) > 0 {
 		printFailures(nodesFailed)
 	}
+	os.Exit(exitStatus)
 }
 
 func checkForSplitBrain(nodes []ElasticsearchNode) bool {
