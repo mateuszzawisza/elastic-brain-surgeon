@@ -50,7 +50,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	nodes := fetchNodes(esAddresses)
+	nodes, nodesFailed := fetchNodes(esAddresses)
 	split := checkForSplitBrain(nodes)
 	if split {
 		fmt.Println("The brain is split!")
@@ -65,31 +65,37 @@ func main() {
 		masters := gatherMasters(nodes)
 		printMasterNodes(masters)
 	}
-	failures := gatherFailures(nodes)
-	printFailures(failures)
-
+	if len(nodesFailed) > 0 {
+		printFailures(nodesFailed)
+	}
 }
 
 func checkForSplitBrain(nodes []ElasticsearchNode) bool {
 	for i := 1; i < len(nodes); i++ {
-		if nodes[i].MasterNode == nodes[i-1].MasterNode {
-			return false
+		if nodes[i].MasterNode != nodes[i-1].MasterNode {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
-func fetchNodes(esAddresses []string) []ElasticsearchNode {
-	nodes := make([]ElasticsearchNode, len(esAddresses))
+func fetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode) {
+	nodesSuccessfull := make([]ElasticsearchNode, 0, len(esAddresses))
+	nodesFailed := make([]ElasticsearchNode, 0, len(esAddresses))
 	nodesChan := make(chan ElasticsearchNode, len(esAddresses))
 	for _, node := range esAddresses {
 		go asyncFetchNode(node, nodesChan)
 	}
 	for i := 0; i < len(esAddresses); i++ {
 		fetchedNode := <-nodesChan
-		nodes[i] = fetchedNode
+		if fetchedNode.ErrorFetching {
+			nodesFailed = append(nodesFailed, fetchedNode)
+		} else {
+			nodesSuccessfull = append(nodesSuccessfull, fetchedNode)
+		}
+
 	}
-	return nodes
+	return nodesSuccessfull, nodesFailed
 }
 
 func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
@@ -145,10 +151,10 @@ func printMasterNodes(ms map[string][]ElasticsearchNode) {
 	}
 }
 
-func printFailures(failures []string) {
+func printFailures(failures []ElasticsearchNode) {
 	fmt.Println("Failed connecting to:")
 	for _, failure := range failures {
-		fmt.Printf("  %s\n", failure)
+		fmt.Printf("  %s\n", failure.Name)
 	}
 }
 
