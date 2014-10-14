@@ -1,18 +1,12 @@
-package main
+package clusterstatus
 
 import (
 	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
-	"strings"
 )
-
-const Version = "0.0.1"
 
 type ClusterState struct {
 	MasterNode  string          `json:"master_node"`
@@ -40,48 +34,7 @@ type ElasticsearchNode struct {
 	ErrorFetching  bool
 }
 
-var esAddresses addresses
-var strict bool
-var printStatus bool
-var version bool
-
-var exitStatus int = 0
-
-func init() {
-	flag.Var(&esAddresses, "elasticsearch-list", "comma sperated list of elasticsearch instances addresses")
-	flag.BoolVar(&strict, "strict", false, "Strict exit status")
-	flag.BoolVar(&printStatus, "print", false, "Print cluster status")
-	flag.BoolVar(&version, "version", false, "Print version")
-}
-
-func main() {
-	flag.Parse()
-	if version {
-		fmt.Printf("Version %s\n", Version)
-		return
-	}
-	nodes, nodesFailed := fetchNodes(esAddresses)
-	split := checkForSplitBrain(nodes)
-	if split {
-		fmt.Println("The brain is split!")
-		printStatus = true
-		if strict {
-			exitStatus = 1
-		}
-	} else {
-		fmt.Println("Everything is ok")
-	}
-	if printStatus {
-		masters := gatherMasters(nodes)
-		printMasterNodes(masters)
-	}
-	if len(nodesFailed) > 0 {
-		printFailures(nodesFailed)
-	}
-	os.Exit(exitStatus)
-}
-
-func checkForSplitBrain(nodes []ElasticsearchNode) bool {
+func CheckForSplitBrain(nodes []ElasticsearchNode) bool {
 	for i := 1; i < len(nodes); i++ {
 		if nodes[i].MasterNode != nodes[i-1].MasterNode {
 			return true
@@ -90,7 +43,7 @@ func checkForSplitBrain(nodes []ElasticsearchNode) bool {
 	return false
 }
 
-func fetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode) {
+func FetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode) {
 	nodesSuccessfull := make([]ElasticsearchNode, 0, len(esAddresses))
 	nodesFailed := make([]ElasticsearchNode, 0, len(esAddresses))
 	nodesChan := make(chan ElasticsearchNode, len(esAddresses))
@@ -153,7 +106,7 @@ func getNodeStatus(address string) NodeStatus {
 	return ns
 }
 
-func printMasterNodes(ms map[string][]ElasticsearchNode) {
+func PrintMasterNodes(ms map[string][]ElasticsearchNode) {
 	for master, nodes := range ms {
 		fmt.Printf("master: %s \n", master)
 		for i, node := range nodes {
@@ -162,14 +115,14 @@ func printMasterNodes(ms map[string][]ElasticsearchNode) {
 	}
 }
 
-func printFailures(failures []ElasticsearchNode) {
+func PrintFailures(failures []ElasticsearchNode) {
 	fmt.Println("Failed connecting to:")
 	for _, failure := range failures {
 		fmt.Printf("  %s\n", failure.Name)
 	}
 }
 
-func gatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
+func GatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
 	mappedMasters := make(map[string][]ElasticsearchNode)
 	for _, node := range nodes {
 		if node.ErrorFetching == false {
@@ -187,21 +140,4 @@ func gatherFailures(nodes []ElasticsearchNode) []string {
 		}
 	}
 	return failedFetching
-}
-
-// address flag
-type addresses []string
-
-func (i *addresses) String() string {
-	return fmt.Sprint(*i)
-}
-
-func (i *addresses) Set(value string) error {
-	if len(*i) > 0 {
-		return errors.New("Addresses flag already set")
-	}
-	for _, address := range strings.Split(value, ",") {
-		*i = append(*i, address)
-	}
-	return nil
 }
