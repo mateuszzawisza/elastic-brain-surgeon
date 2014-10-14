@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const Version = "0.0.1"
+
 type ClusterState struct {
 	MasterNode  string          `json:"master_node"`
 	ClusterName string          `json:"cluster_name"`
@@ -41,6 +43,7 @@ type ElasticsearchNode struct {
 var esAddresses addresses
 var strict bool
 var printStatus bool
+var version bool
 
 var exitStatus int = 0
 
@@ -48,10 +51,15 @@ func init() {
 	flag.Var(&esAddresses, "elasticsearch-list", "comma sperated list of elasticsearch instances addresses")
 	flag.BoolVar(&strict, "strict", false, "Strict exit status")
 	flag.BoolVar(&printStatus, "print", false, "Print cluster status")
+	flag.BoolVar(&version, "version", false, "Print version")
 }
 
 func main() {
 	flag.Parse()
+	if version {
+		fmt.Printf("Version %s\n", Version)
+		return
+	}
 	nodes, nodesFailed := fetchNodes(esAddresses)
 	split := checkForSplitBrain(nodes)
 	if split {
