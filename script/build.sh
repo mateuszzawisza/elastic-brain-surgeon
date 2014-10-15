@@ -7,5 +7,5 @@ echo "Done!"
 echo
 
 echo "Building..."
-gox -output "./bin/brain_{{.OS}}_{{.Arch}}" -os "linux darwin" -arch "amd64 386"
+gox -output "./bin/elastic-brain-surgeon_{{.OS}}_{{.Arch}}" -os "linux darwin" -arch "amd64 386"
 echo "Done!"
