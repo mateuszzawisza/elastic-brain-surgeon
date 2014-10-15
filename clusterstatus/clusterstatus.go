@@ -138,6 +138,15 @@ func GatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
 	return mappedMasters
 }
 
+func AmIMaster(node string, masterNodes map[string][]ElasticsearchNode) bool {
+	for masterNode, _ := range masterNodes {
+		if masterNode == node {
+			return true
+		}
+	}
+	return false
+}
+
 func gatherFailures(nodes []ElasticsearchNode) []string {
 	failedFetching := make([]string, 0, len(nodes))
 	for _, node := range nodes {

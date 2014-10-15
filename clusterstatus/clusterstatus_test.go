@@ -157,6 +157,30 @@ func TestGatherMasters(t *testing.T) {
 	}
 }
 
+func TestAmIMasterIfYes(t *testing.T) {
+	nodeName := "Node1"
+	node1 := ElasticsearchNode{"Node1", 200, "Node1", 3, false}
+	node2 := ElasticsearchNode{"Node2", 200, "Node1", 3, false}
+	node3 := ElasticsearchNode{"Node3", 200, "Node1", 3, false}
+	nodes := []ElasticsearchNode{node1, node2, node3}
+	masterNodes := GatherMasters(nodes)
+	if amI := AmIMaster(nodeName, masterNodes); amI != true {
+		t.Errorf("I am master but test said yes")
+	}
+}
+
+func TestAmIMasterIfNo(t *testing.T) {
+	nodeName := "Node1"
+	node1 := ElasticsearchNode{"Node1", 200, "Node2", 3, false}
+	node2 := ElasticsearchNode{"Node2", 200, "Node2", 3, false}
+	node3 := ElasticsearchNode{"Node3", 200, "Node2", 3, false}
+	nodes := []ElasticsearchNode{node1, node2, node3}
+	masterNodes := GatherMasters(nodes)
+	if amI := AmIMaster(nodeName, masterNodes); amI != false {
+		t.Errorf("I am master but test said no")
+	}
+}
+
 func mockNodeServer(statusResponse, clusterResponse string) *httptest.Server {
 	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.RequestURI {
