@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+const clusterStatusEndpoint = "/_cluster/state/nodes,master_node"
+const nodeStatusEndpoint = "/"
+
 type ClusterState struct {
 	MasterNode  string          `json:"master_node"`
 	ClusterName string          `json:"cluster_name"`
@@ -83,7 +86,7 @@ func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
 }
 func getClusterState(address string) ClusterState {
 	address = normalizeAddress(address)
-	statusEndpoint := address + "/_cluster/state/nodes,master_node"
+	statusEndpoint := address + clusterStatusEndpoint
 	resp, err := http.Get(statusEndpoint)
 	if err != nil {
 		log.Panic("could not connect to node")
@@ -97,7 +100,7 @@ func getClusterState(address string) ClusterState {
 
 func getNodeStatus(address string) NodeStatus {
 	address = normalizeAddress(address)
-	statusEndpoint := address
+	statusEndpoint := address + nodeStatusEndpoint
 	resp, err := http.Get(statusEndpoint)
 	if err != nil {
 		log.Panic("could not connect to node")
