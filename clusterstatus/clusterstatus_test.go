@@ -29,3 +29,11 @@ func TestCheckForSplitBrainWhenNoSplitBrain(t *testing.T) {
 		t.Errorf("Split brain not detected. Expected %v. Got %v", expectedSplitBrainResult, splitBrain)
 	}
 }
+
+func TestFetchNOdes(t *testing.T) {
+	t.SkipNow()
+}
+
+func TestGatherMasters(t *testing.T) {
+	t.SkipNow()
+}
