@@ -118,6 +118,24 @@ func TestFetchNodes(t *testing.T) {
 	}
 }
 
+func TestFetchNodesOneNodeMissing(t *testing.T) {
+	const expectedFailedNodes = 1
+	const expectedSuccessfullNodes = 2
+	node1 := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
+	defer node1.Close()
+	node2 := mockNodeServer(node2StatusResposnse, nodeClusterResponse)
+	defer node2.Close()
+	node3URI := "http:/127.0.0.2:25000"
+
+	nodesSuccessfull, nodesFailed := FetchNodes([]string{node1.URL, node2.URL, node3URI})
+	if failedNodesAmount := len(nodesFailed); failedNodesAmount > expectedFailedNodes {
+		t.Errorf("Failed nodes amount mismatch. Expected %d. Got %d", expectedFailedNodes, failedNodesAmount)
+	}
+	if successfullNodesAmount := len(nodesSuccessfull); successfullNodesAmount > expectedSuccessfullNodes {
+		t.Errorf("Successfull nodes amount mismatch. Expected %d. Got %d", expectedSuccessfullNodes, successfullNodesAmount)
+	}
+}
+
 func TestGatherMasters(t *testing.T) {
 	t.SkipNow()
 }
