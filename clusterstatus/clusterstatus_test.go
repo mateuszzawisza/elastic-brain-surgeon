@@ -1,6 +1,75 @@
 package clusterstatus
 
-import "testing"
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+const node1StatusResposnse = `{
+  "status" : 200,
+    "name" : "Node1",
+  "version" : {
+      "number" : "1.3.4",
+      "build_hash" : "a70f3ccb52200f8f2c87e9c370c6597448eb3e45",
+      "build_timestamp" : "2014-09-30T09:07:17Z",
+      "build_snapshot" : false,
+      "lucene_version" : "4.9"
+    },
+  "tagline" : "You Know, for Search"
+  }`
+const node2StatusResposnse = `{
+  "status" : 200,
+    "name" : "Node2",
+  "version" : {
+      "number" : "1.3.4",
+      "build_hash" : "a70f3ccb52200f8f2c87e9c370c6597448eb3e45",
+      "build_timestamp" : "2014-09-30T09:07:17Z",
+      "build_snapshot" : false,
+      "lucene_version" : "4.9"
+    },
+  "tagline" : "You Know, for Search"
+  }`
+const node3StatusResposnse = `{
+  "status" : 200,
+    "name" : "Node3",
+  "version" : {
+      "number" : "1.3.4",
+      "build_hash" : "a70f3ccb52200f8f2c87e9c370c6597448eb3e45",
+      "build_timestamp" : "2014-09-30T09:07:17Z",
+      "build_snapshot" : false,
+      "lucene_version" : "4.9"
+    },
+  "tagline" : "You Know, for Search"
+  }`
+const nodeClusterResponse = `{
+  "cluster_name" : "test-cluster",
+  "master_node" : "Node1UniqeID",
+  "nodes" : {
+    "Node1UniqeID" : {
+      "name" : "Node1",
+      "transport_address" : "inet[/10.0.0.1:9300]",
+      "attributes" : {
+        "aws_zone" : "a"
+      }
+    },
+    "Node2UniqeID" : {
+      "name" : "Node2",
+      "transport_address" : "inet[/10.0.0.2:9300]",
+      "attributes" : {
+        "aws_zone" : "b"
+      }
+    },
+    "Node3UniqeID" : {
+      "name" : "Node3",
+      "transport_address" : "inet[/10.0.0.3:9300]",
+      "attributes" : {
+        "aws_zone" : "b"
+      }
+    },
+  }
+}`
 
 var brokenCluster []ElasticsearchNode = []ElasticsearchNode{
 	ElasticsearchNode{"Node1", 200, "Node1", 2, false},
@@ -30,10 +99,39 @@ func TestCheckForSplitBrainWhenNoSplitBrain(t *testing.T) {
 	}
 }
 
-func TestFetchNOdes(t *testing.T) {
-	t.SkipNow()
+func TestFetchNodes(t *testing.T) {
+	const expectedFailedNodes = 0
+	const expectedSuccessfullNodes = 3
+	node1 := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
+	defer node1.Close()
+	node2 := mockNodeServer(node2StatusResposnse, nodeClusterResponse)
+	defer node2.Close()
+	node3 := mockNodeServer(node3StatusResposnse, nodeClusterResponse)
+	defer node3.Close()
+
+	nodesSuccessfull, nodesFailed := FetchNodes([]string{node1.URL, node2.URL, node3.URL})
+	if failedNodesAmount := len(nodesFailed); failedNodesAmount > expectedFailedNodes {
+		t.Errorf("Failed nodes amount mismatch. Expected %d. Got %d", expectedFailedNodes, failedNodesAmount)
+	}
+	if successfullNodesAmount := len(nodesSuccessfull); successfullNodesAmount > expectedSuccessfullNodes {
+		t.Errorf("Successfull nodes amount mismatch. Expected %d. Got %d", expectedSuccessfullNodes, successfullNodesAmount)
+	}
 }
 
 func TestGatherMasters(t *testing.T) {
 	t.SkipNow()
+}
+
+func mockNodeServer(statusResponse, clusterResponse string) *httptest.Server {
+	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.RequestURI {
+		default:
+			fmt.Fprintln(w, "`{}`")
+		case "/_cluster/state/nodes,master_node":
+			fmt.Fprintln(w, clusterResponse)
+		case "/", "":
+			fmt.Fprintln(w, statusResponse)
+		}
+	}))
+	return node
 }

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type ClusterState struct {
@@ -81,7 +82,8 @@ func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
 	nodesChan <- esNode
 }
 func getClusterState(address string) ClusterState {
-	statusEndpoint := fmt.Sprintf("http://%s/_cluster/state/nodes,master_node", address)
+	address = normalizeAddress(address)
+	statusEndpoint := address + "/_cluster/state/nodes,master_node"
 	resp, err := http.Get(statusEndpoint)
 	if err != nil {
 		log.Panic("could not connect to node")
@@ -94,7 +96,8 @@ func getClusterState(address string) ClusterState {
 }
 
 func getNodeStatus(address string) NodeStatus {
-	statusEndpoint := fmt.Sprintf("http://%s", address)
+	address = normalizeAddress(address)
+	statusEndpoint := address
 	resp, err := http.Get(statusEndpoint)
 	if err != nil {
 		log.Panic("could not connect to node")
@@ -140,4 +143,15 @@ func gatherFailures(nodes []ElasticsearchNode) []string {
 		}
 	}
 	return failedFetching
+}
+
+func normalizeAddress(address string) string {
+	httpPrefix := "http://"
+	startsWithHttp := strings.HasPrefix(address, httpPrefix)
+	if startsWithHttp {
+		return address
+	} else {
+		return (httpPrefix + address)
+	}
+
 }
