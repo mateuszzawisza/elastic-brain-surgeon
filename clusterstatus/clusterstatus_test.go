@@ -137,7 +137,24 @@ func TestFetchNodesOneNodeMissing(t *testing.T) {
 }
 
 func TestGatherMasters(t *testing.T) {
-	t.SkipNow()
+	const expectedMasterNodesAmount = 2
+	const expectedNodesCountGood = 3
+	const expectedNodesCountBad = 1
+	node1 := ElasticsearchNode{"Node1", 200, "Node1", 2, false}
+	node2 := ElasticsearchNode{"Node2", 200, "Node1", 2, false}
+	node3 := ElasticsearchNode{"Node3", 200, "Node1", 2, false}
+	node4 := ElasticsearchNode{"Node4", 200, "Node4", 2, false}
+	nodes := []ElasticsearchNode{node1, node2, node3, node4}
+	masterNodes := GatherMasters(nodes)
+	if masterNodesAmount := len(masterNodes); masterNodesAmount != expectedMasterNodesAmount {
+		t.Errorf("Master nodes in cluster mismatch. Expected %d. Got %d", expectedMasterNodesAmount, masterNodesAmount)
+	}
+	if nodeCountGood := len(masterNodes["Node1"]); nodeCountGood != expectedNodesCountGood {
+		t.Errorf("Nodes amount for good master mismatch. Expected %d. Got %d", expectedNodesCountGood, nodeCountGood)
+	}
+	if nodeCountBad := len(masterNodes["Node4"]); nodeCountBad != expectedNodesCountBad {
+		t.Errorf("Nodes amount for bad master mismatch. Expected %d. Got %d", expectedNodesCountBad, nodeCountBad)
+	}
 }
 
 func mockNodeServer(statusResponse, clusterResponse string) *httptest.Server {
