@@ -125,9 +125,10 @@ func TestFetchNodesOneNodeMissing(t *testing.T) {
 	defer node1.Close()
 	node2 := mockNodeServer(node2StatusResposnse, nodeClusterResponse)
 	defer node2.Close()
-	node3URI := "http:/127.0.0.2:25000"
+	node3 := mockNodeServerFailing()
+	defer node3.Close()
 
-	nodesSuccessfull, nodesFailed := FetchNodes([]string{node1.URL, node2.URL, node3URI})
+	nodesSuccessfull, nodesFailed := FetchNodes([]string{node1.URL, node2.URL, node3.URL})
 	if failedNodesAmount := len(nodesFailed); failedNodesAmount > expectedFailedNodes {
 		t.Errorf("Failed nodes amount mismatch. Expected %d. Got %d", expectedFailedNodes, failedNodesAmount)
 	}
@@ -183,6 +184,12 @@ func mockNodeServer(statusResponse, clusterResponse string) *httptest.Server {
 		case "/", "":
 			fmt.Fprintln(w, statusResponse)
 		}
+	}))
+	return node
+}
+func mockNodeServerFailing() *httptest.Server {
+	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 	}))
 	return node
 }

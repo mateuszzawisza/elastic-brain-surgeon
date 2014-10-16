@@ -91,6 +91,9 @@ func getClusterState(address string) ClusterState {
 	if err != nil {
 		log.Panic("could not connect to node")
 	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		log.Panic("node has failed")
+	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	var cs ClusterState
@@ -104,6 +107,9 @@ func getNodeStatus(address string) NodeStatus {
 	resp, err := http.Get(statusEndpoint)
 	if err != nil {
 		log.Panic("could not connect to node")
+	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		log.Panic("node has failed")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
