@@ -138,13 +138,11 @@ func GatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
 	return mappedMasters
 }
 
-func AmIMaster(node string, masterNodes map[string][]ElasticsearchNode) bool {
-	for masterNode, _ := range masterNodes {
-		if masterNode == node {
-			return true
-		}
-	}
-	return false
+func AmIMaster(myAddress string) bool {
+	nodeStatus := getNodeStatus(myAddress)
+	clusterStatus := getClusterState(myAddress)
+	masterNode := clusterStatus.Nodes[clusterStatus.MasterNode].Name
+	return masterNode == nodeStatus.Name
 }
 
 func gatherFailures(nodes []ElasticsearchNode) []string {

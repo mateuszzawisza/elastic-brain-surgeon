@@ -67,7 +67,7 @@ const nodeClusterResponse = `{
       "attributes" : {
         "aws_zone" : "b"
       }
-    },
+    }
   }
 }`
 
@@ -158,26 +158,18 @@ func TestGatherMasters(t *testing.T) {
 }
 
 func TestAmIMasterIfYes(t *testing.T) {
-	nodeName := "Node1"
-	node1 := ElasticsearchNode{"Node1", 200, "Node1", 3, false}
-	node2 := ElasticsearchNode{"Node2", 200, "Node1", 3, false}
-	node3 := ElasticsearchNode{"Node3", 200, "Node1", 3, false}
-	nodes := []ElasticsearchNode{node1, node2, node3}
-	masterNodes := GatherMasters(nodes)
-	if amI := AmIMaster(nodeName, masterNodes); amI != true {
-		t.Errorf("I am master but test said yes")
+	me := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
+	defer me.Close()
+	if amI := AmIMaster(me.URL); amI != true {
+		t.Errorf("I am master but test said no")
 	}
 }
 
 func TestAmIMasterIfNo(t *testing.T) {
-	nodeName := "Node1"
-	node1 := ElasticsearchNode{"Node1", 200, "Node2", 3, false}
-	node2 := ElasticsearchNode{"Node2", 200, "Node2", 3, false}
-	node3 := ElasticsearchNode{"Node3", 200, "Node2", 3, false}
-	nodes := []ElasticsearchNode{node1, node2, node3}
-	masterNodes := GatherMasters(nodes)
-	if amI := AmIMaster(nodeName, masterNodes); amI != false {
-		t.Errorf("I am master but test said no")
+	me := mockNodeServer(node2StatusResposnse, nodeClusterResponse)
+	defer me.Close()
+	if amI := AmIMaster(me.URL); amI != false {
+		t.Errorf("I am not master but test said yes")
 	}
 }
 
