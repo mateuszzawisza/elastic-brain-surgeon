@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 const node1StatusResposnse = `{
@@ -137,6 +138,25 @@ func TestFetchNodesOneNodeMissing(t *testing.T) {
 	}
 }
 
+func TestFetchNodesOneNodeTimeout(t *testing.T) {
+	const expectedFailedNodes = 1
+	const expectedSuccessfullNodes = 2
+	node1 := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
+	defer node1.Close()
+	node2 := mockNodeServer(node2StatusResposnse, nodeClusterResponse)
+	defer node2.Close()
+	node3 := mockNodeServerTimeout()
+	defer node3.Close()
+
+	nodesSuccessfull, nodesFailed := FetchNodes([]string{node1.URL, node2.URL, node3.URL})
+	if failedNodesAmount := len(nodesFailed); failedNodesAmount > expectedFailedNodes {
+		t.Errorf("Failed nodes amount mismatch. Expected %d. Got %d", expectedFailedNodes, failedNodesAmount)
+	}
+	if successfullNodesAmount := len(nodesSuccessfull); successfullNodesAmount > expectedSuccessfullNodes {
+		t.Errorf("Successfull nodes amount mismatch. Expected %d. Got %d", expectedSuccessfullNodes, successfullNodesAmount)
+	}
+}
+
 func TestGatherMasters(t *testing.T) {
 	const expectedMasterNodesAmount = 2
 	const expectedNodesCountGood = 3
@@ -161,7 +181,11 @@ func TestGatherMasters(t *testing.T) {
 func TestAmIMasterIfYes(t *testing.T) {
 	me := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
 	defer me.Close()
-	if amI := AmIMaster(me.URL); amI != true {
+	amI, err := AmIMaster(me.URL)
+	if err != nil {
+		t.Errorf("Error should be nil but got %v", err)
+	}
+	if amI != true {
 		t.Errorf("I am master but test said no")
 	}
 }
@@ -169,7 +193,11 @@ func TestAmIMasterIfYes(t *testing.T) {
 func TestAmIMasterIfNo(t *testing.T) {
 	me := mockNodeServer(node2StatusResposnse, nodeClusterResponse)
 	defer me.Close()
-	if amI := AmIMaster(me.URL); amI != false {
+	amI, err := AmIMaster(me.URL)
+	if err != nil {
+		t.Errorf("Error should be nil but got %v", err)
+	}
+	if amI != false {
 		t.Errorf("I am not master but test said yes")
 	}
 }
@@ -189,6 +217,14 @@ func mockNodeServer(statusResponse, clusterResponse string) *httptest.Server {
 }
 func mockNodeServerFailing() *httptest.Server {
 	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+	}))
+	return node
+}
+
+func mockNodeServerTimeout() *httptest.Server {
+	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Second)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 	}))
 	return node

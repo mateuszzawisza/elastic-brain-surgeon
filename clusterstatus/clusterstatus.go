@@ -2,11 +2,13 @@ package clusterstatus
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const clusterStatusEndpoint = "/_cluster/state/nodes,master_node"
@@ -67,55 +69,77 @@ func FetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode)
 }
 
 func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
-	defer func() {
-		if r := recover(); r != nil {
-			esNode := ElasticsearchNode{node, 0, "", 0, true}
-			nodesChan <- esNode
-		}
-	}()
-	ns := getNodeStatus(node)
-	cs := getClusterState(node)
-	esNode := ElasticsearchNode{
-		ns.Name,
-		ns.Status,
-		cs.Nodes[cs.MasterNode].Name,
-		len(cs.Nodes),
-		false,
+	// FIXME can we remove or shoulr recover anyway?
+	//defer func() {
+	//	if r := recover(); r != nil {
+	//		esNode := ElasticsearchNode{node, 0, "", 0, true}
+	//		nodesChan <- esNode
+	//	}
+	//}()
+	ns, nsErr := getNodeStatus(node)
+	cs, csErr := getClusterState(node)
+	esNode := ElasticsearchNode{node, 0, "", 0, true}
+
+	if nsErr == nil && csErr == nil {
+		esNode.Name = ns.Name
+		esNode.Status = ns.Status
+		esNode.MasterNode = cs.Nodes[cs.MasterNode].Name
+		esNode.NodesInCluster = len(cs.Nodes)
+		esNode.ErrorFetching = false
 	}
 	nodesChan <- esNode
 }
-func getClusterState(address string) ClusterState {
+
+func getClusterState(address string) (ClusterState, error) {
 	address = normalizeAddress(address)
 	statusEndpoint := address + clusterStatusEndpoint
-	resp, err := http.Get(statusEndpoint)
+	resp, err := makeHttpCall(statusEndpoint)
 	if err != nil {
-		log.Panic("could not connect to node")
+		return ClusterState{}, errors.New("could not connect to node")
+		log.Println("could not connect to node")
 	}
 	if resp.StatusCode == http.StatusInternalServerError {
-		log.Panic("node has failed")
+		return ClusterState{}, errors.New("node has failed")
+		log.Println("node has failed")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	var cs ClusterState
 	json.Unmarshal(body, &cs)
-	return cs
+	return cs, nil
 }
 
-func getNodeStatus(address string) NodeStatus {
+func makeHttpCall(endpoint string) (*http.Response, error) {
+	client := http.Client{Timeout: time.Duration(1 * time.Second)}
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	return resp, err
+}
+
+func getNodeStatus(address string) (NodeStatus, error) {
 	address = normalizeAddress(address)
 	statusEndpoint := address + nodeStatusEndpoint
-	resp, err := http.Get(statusEndpoint)
+	resp, err := makeHttpCall(statusEndpoint)
 	if err != nil {
-		log.Panic("could not connect to node")
+		return NodeStatus{}, errors.New("could not connect to node")
+		log.Println("could not connect to node")
 	}
 	if resp.StatusCode == http.StatusInternalServerError {
-		log.Panic("node has failed")
+		return NodeStatus{}, errors.New("node has failed")
+		log.Println("node has failed")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return NodeStatus{}, errors.New(fmt.Sprintf("error reading body: %v", err))
+		log.Println("error reading body: %v", err)
+	}
 	var ns NodeStatus
 	json.Unmarshal(body, &ns)
-	return ns
+	return ns, nil
 }
 
 func PrintMasterNodes(ms map[string][]ElasticsearchNode) {
@@ -144,11 +168,17 @@ func GatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
 	return mappedMasters
 }
 
-func AmIMaster(myAddress string) bool {
-	nodeStatus := getNodeStatus(myAddress)
-	clusterStatus := getClusterState(myAddress)
+func AmIMaster(myAddress string) (bool, error) {
+	nodeStatus, gNerr := getNodeStatus(myAddress)
+	clusterStatus, gCerr := getClusterState(myAddress)
+	if gNerr != nil {
+		return false, gNerr
+	}
+	if gCerr != nil {
+		return false, gCerr
+	}
 	masterNode := clusterStatus.Nodes[clusterStatus.MasterNode].Name
-	return masterNode == nodeStatus.Name
+	return masterNode == nodeStatus.Name, nil
 }
 
 func gatherFailures(nodes []ElasticsearchNode) []string {
@@ -169,5 +199,4 @@ func normalizeAddress(address string) string {
 	} else {
 		return (httpPrefix + address)
 	}
-
 }
