@@ -18,7 +18,7 @@ master: elasticsearch-box-1
 ```bash
 # if there is split brain
 ./brain  -elasticsearch-list 127.0.0.1:9200,127.0.0.1:9201,127.0.0.1:9202 --print
-The brian is split!
+The brain is split!
 master: elasticsearch-box-1
   node 0: elasticsearch-box-1
   node 1: elasticsearch-box-2
