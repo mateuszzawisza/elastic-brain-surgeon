@@ -1,2 +1,5 @@
 test:
-	 go test -v ./... -cover
+	 go test ./... -cover -short
+
+test-full:
+	 go test ./... -cover
