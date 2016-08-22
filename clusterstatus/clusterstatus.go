@@ -14,6 +14,8 @@ import (
 const clusterStatusEndpoint = "/_cluster/state/nodes,master_node"
 const nodeStatusEndpoint = "/"
 
+var httpTimeout = time.Second * 1
+
 type ClusterState struct {
 	MasterNode  string          `json:"master_node"`
 	ClusterName string          `json:"cluster_name"`
@@ -103,7 +105,7 @@ func getClusterState(address string) (ClusterState, error) {
 }
 
 func makeHttpCall(endpoint string) (*http.Response, error) {
-	var client = &http.Client{Timeout: time.Second * 1}
+	var client = &http.Client{Timeout: httpTimeout}
 	resp, err := client.Get(endpoint)
 	return resp, err
 }
