@@ -69,13 +69,6 @@ func FetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode)
 }
 
 func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
-	// FIXME can we remove or shoulr recover anyway?
-	//defer func() {
-	//	if r := recover(); r != nil {
-	//		esNode := ElasticsearchNode{node, 0, "", 0, true}
-	//		nodesChan <- esNode
-	//	}
-	//}()
 	ns, nsErr := getNodeStatus(node)
 	cs, csErr := getClusterState(node)
 	esNode := ElasticsearchNode{node, 0, "", 0, true}
@@ -98,12 +91,12 @@ func getClusterState(address string) (ClusterState, error) {
 		return ClusterState{}, errors.New("could not connect to node")
 		log.Println("could not connect to node")
 	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusInternalServerError {
 		return ClusterState{}, errors.New("node has failed")
 		log.Println("node has failed")
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
 	var cs ClusterState
 	json.Unmarshal(body, &cs)
 	return cs, nil
