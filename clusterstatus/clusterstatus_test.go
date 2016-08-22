@@ -139,6 +139,9 @@ func TestFetchNodesOneNodeMissing(t *testing.T) {
 }
 
 func TestFetchNodesOneNodeTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping in short mode")
+	}
 	const expectedFailedNodes = 1
 	const expectedSuccessfullNodes = 2
 	node1 := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
@@ -224,8 +227,8 @@ func mockNodeServerFailing() *httptest.Server {
 
 func mockNodeServerTimeout() *httptest.Server {
 	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(100 * time.Second)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
+		time.Sleep(2 * time.Second)
+		fmt.Fprintln(w, "`{}`")
 	}))
 	return node
 }

@@ -110,12 +110,8 @@ func getClusterState(address string) (ClusterState, error) {
 }
 
 func makeHttpCall(endpoint string) (*http.Response, error) {
-	client := http.Client{Timeout: time.Duration(1 * time.Second)}
-	req, err := http.NewRequest("GET", endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := client.Do(req)
+	var client = &http.Client{Timeout: time.Second * 1}
+	resp, err := client.Get(endpoint)
 	return resp, err
 }
 
