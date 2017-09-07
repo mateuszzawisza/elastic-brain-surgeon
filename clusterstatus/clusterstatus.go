@@ -89,6 +89,7 @@ func getClusterState(address string) (ClusterState, error) {
 	address = normalizeAddress(address)
 	statusEndpoint := address + clusterStatusEndpoint
 	resp, err := makeHttpCall(statusEndpoint)
+	defer resp.Body.Close()
 	if err != nil {
 		return ClusterState{}, errors.New("could not connect to node")
 		log.Println("could not connect to node")
@@ -114,6 +115,7 @@ func getNodeStatus(address string) (NodeStatus, error) {
 	address = normalizeAddress(address)
 	statusEndpoint := address + nodeStatusEndpoint
 	resp, err := makeHttpCall(statusEndpoint)
+	defer resp.Body.Close()
 	if err != nil {
 		return NodeStatus{}, errors.New("could not connect to node")
 		log.Println("could not connect to node")
