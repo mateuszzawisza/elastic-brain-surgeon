@@ -73,15 +73,15 @@ const nodeClusterResponse = `{
 }`
 
 var brokenCluster = []ElasticsearchNode{
-	ElasticsearchNode{"Node1", 200, "Node1", 2, false},
-	ElasticsearchNode{"Node2", 200, "Node1", 2, false},
-	ElasticsearchNode{"Node3", 200, "Node3", 2, false},
+	ElasticsearchNode{"Node1", "inet[/10.0.0.1:9300]", 200, "Node1", 2, false},
+	ElasticsearchNode{"Node2", "inet[/10.0.0.2:9300]", 200, "Node1", 2, false},
+	ElasticsearchNode{"Node3", "inet[/10.0.0.3:9300]", 200, "Node3", 2, false},
 }
 
 var healthyCluster = []ElasticsearchNode{
-	ElasticsearchNode{"Node1", 200, "Node1", 3, false},
-	ElasticsearchNode{"Node2", 200, "Node1", 3, false},
-	ElasticsearchNode{"Node3", 200, "Node1", 3, false},
+	ElasticsearchNode{"Node1", "inet[/10.0.0.1:9300]", 200, "Node1", 3, false},
+	ElasticsearchNode{"Node2", "inet[/10.0.0.2:9300]", 200, "Node1", 3, false},
+	ElasticsearchNode{"Node3", "inet[/10.0.0.3:9300]", 200, "Node1", 3, false},
 }
 
 func TestCheckForSplitBrainWhenSplitBrain(t *testing.T) {
@@ -97,6 +97,27 @@ func TestCheckForSplitBrainWhenNoSplitBrain(t *testing.T) {
 	splitBrain := CheckForSplitBrain(brokenCluster)
 	if expectedSplitBrainResult != splitBrain {
 		t.Errorf("Split brain not detected. Expected %v. Got %v", expectedSplitBrainResult, splitBrain)
+	}
+}
+
+func TestFetchNodesArguments(t *testing.T) {
+	expectedNode := ElasticsearchNode{"Node1", "inet[/10.0.0.1:9300]", 200, "Node1", 2, false}
+	node1 := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
+	defer node1.Close()
+	nodesSuccessfull, _ := FetchNodes([]string{node1.URL})
+	fmt.Println(nodesSuccessfull)
+	node := nodesSuccessfull[0]
+	if node.Name != expectedNode.Name {
+		t.Errorf("Node name mismatch. Expected '%s', but got %v",
+			expectedNode.Name, node.Name)
+	}
+	if node.IPAddress != expectedNode.IPAddress {
+		t.Errorf("Node ip address mismatch. Expected '%s', but got %v",
+			expectedNode.IPAddress, node.IPAddress)
+	}
+	if node.Status != expectedNode.Status {
+		t.Errorf("Node status mismatch. Expected '%d', but got %v",
+			expectedNode.Status, node.Status)
 	}
 }
 
@@ -164,10 +185,10 @@ func TestGatherMasters(t *testing.T) {
 	const expectedMasterNodesAmount = 2
 	const expectedNodesCountGood = 3
 	const expectedNodesCountBad = 1
-	node1 := ElasticsearchNode{"Node1", 200, "Node1", 2, false}
-	node2 := ElasticsearchNode{"Node2", 200, "Node1", 2, false}
-	node3 := ElasticsearchNode{"Node3", 200, "Node1", 2, false}
-	node4 := ElasticsearchNode{"Node4", 200, "Node4", 2, false}
+	node1 := ElasticsearchNode{"Node1", "[inet[/10.0.0.1:9300]", 200, "Node1", 2, false}
+	node2 := ElasticsearchNode{"Node2", "[inet[/10.0.0.2:9300]", 200, "Node1", 2, false}
+	node3 := ElasticsearchNode{"Node3", "[inet[/10.0.0.3:9300]", 200, "Node1", 2, false}
+	node4 := ElasticsearchNode{"Node4", "[inet[/10.0.0.4:9300]", 200, "Node4", 2, false}
 	nodes := []ElasticsearchNode{node1, node2, node3, node4}
 	masterNodes := GatherMasters(nodes)
 	if masterNodesAmount := len(masterNodes); masterNodesAmount != expectedMasterNodesAmount {

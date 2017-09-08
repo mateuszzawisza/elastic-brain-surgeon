@@ -41,6 +41,7 @@ type NodeStatus struct {
 // ElasticsearchNode gathers information on Elasticsearch Node
 type ElasticsearchNode struct {
 	Name           string
+	IPAddress      string
 	Status         int
 	MasterNode     string
 	NodesInCluster int
@@ -81,10 +82,11 @@ func FetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode)
 func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
 	ns, nsErr := getNodeStatus(node)
 	cs, csErr := getClusterState(node)
-	esNode := ElasticsearchNode{node, 0, "", 0, true}
+	esNode := ElasticsearchNode{node, "", 0, "", 0, true}
 
 	if nsErr == nil && csErr == nil {
 		esNode.Name = ns.Name
+		esNode.IPAddress = getIPAddressForName(ns.Name, cs.Nodes)
 		esNode.Status = ns.Status
 		esNode.MasterNode = cs.Nodes[cs.MasterNode].Name
 		esNode.NodesInCluster = len(cs.Nodes)
@@ -93,16 +95,24 @@ func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
 	nodesChan <- esNode
 }
 
+func getIPAddressForName(name string, nodes map[string]Node) string {
+	for _, node := range nodes {
+		if name == node.Name {
+			return node.TransportAddress
+		}
+	}
+	return ""
+}
+
 func getClusterState(address string) (ClusterState, error) {
 	address = normalizeAddress(address)
 	statusEndpoint := address + clusterStatusEndpoint
 	resp, err := makeHTTPCall(statusEndpoint)
-	defer resp.Body.Close()
+	// defer resp.Body.Close()
 	if err != nil {
 		log.Println("could not connect to node")
 		return ClusterState{}, errors.New("could not connect to node")
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusInternalServerError {
 		log.Println("node has failed")
@@ -148,7 +158,12 @@ func PrintMasterNodes(ms map[string][]ElasticsearchNode) {
 	for master, nodes := range ms {
 		fmt.Printf("master: %s \n", master)
 		for i, node := range nodes {
-			fmt.Printf("  node %d: %s \n", i, node.Name)
+			nodeType := "node"
+			if node.Name == master {
+				nodeType = "master"
+			}
+			fmt.Printf("  node %d: %s - %s [%s]\n", i, node.Name, node.IPAddress,
+				nodeType)
 		}
 	}
 }
