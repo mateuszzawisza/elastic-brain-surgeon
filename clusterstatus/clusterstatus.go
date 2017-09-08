@@ -14,13 +14,16 @@ import (
 const clusterStatusEndpoint = "/_cluster/state/nodes,master_node"
 const nodeStatusEndpoint = "/"
 
-var httpTimeout = time.Second * 1
+var httpTimeout = time.Second * 5
 
+// ClusterState is structure to keep response from /_cluster/state API call
 type ClusterState struct {
 	MasterNode  string          `json:"master_node"`
 	ClusterName string          `json:"cluster_name"`
 	Nodes       map[string]Node `json:"nodes"`
 }
+
+// Node is structure to keep response about nodes in ClusterState API call
 type Node struct {
 	Name             string `json:"name"`
 	TransportAddress string `json:"transport_address"`
@@ -29,19 +32,23 @@ type Node struct {
 	} `json:"attributes"`
 }
 
+// NodeStatus is structure to keep response from node status API call
 type NodeStatus struct {
 	Status int    `json:"status"`
 	Name   string `json:"name"`
 }
 
+// ElasticsearchNode gathers information on Elasticsearch Node
 type ElasticsearchNode struct {
 	Name           string
+	IPAddress      string
 	Status         int
 	MasterNode     string
 	NodesInCluster int
 	ErrorFetching  bool
 }
 
+// CheckForSplitBrain checks if there is more then one leader in the cluster
 func CheckForSplitBrain(nodes []ElasticsearchNode) bool {
 	for i := 1; i < len(nodes); i++ {
 		if nodes[i].MasterNode != nodes[i-1].MasterNode {
@@ -51,6 +58,8 @@ func CheckForSplitBrain(nodes []ElasticsearchNode) bool {
 	return false
 }
 
+// FetchNodes connects to group of nodes that it receives as a parameter and
+// gathers information about cluster topology
 func FetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode) {
 	nodesSuccessfull := make([]ElasticsearchNode, 0, len(esAddresses))
 	nodesFailed := make([]ElasticsearchNode, 0, len(esAddresses))
@@ -73,10 +82,11 @@ func FetchNodes(esAddresses []string) ([]ElasticsearchNode, []ElasticsearchNode)
 func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
 	ns, nsErr := getNodeStatus(node)
 	cs, csErr := getClusterState(node)
-	esNode := ElasticsearchNode{node, 0, "", 0, true}
+	esNode := ElasticsearchNode{node, "", 0, "", 0, true}
 
 	if nsErr == nil && csErr == nil {
 		esNode.Name = ns.Name
+		esNode.IPAddress = getIPAddressForName(ns.Name, cs.Nodes)
 		esNode.Status = ns.Status
 		esNode.MasterNode = cs.Nodes[cs.MasterNode].Name
 		esNode.NodesInCluster = len(cs.Nodes)
@@ -85,26 +95,35 @@ func asyncFetchNode(node string, nodesChan chan ElasticsearchNode) {
 	nodesChan <- esNode
 }
 
+func getIPAddressForName(name string, nodes map[string]Node) string {
+	for _, node := range nodes {
+		if name == node.Name {
+			return node.TransportAddress
+		}
+	}
+	return ""
+}
+
 func getClusterState(address string) (ClusterState, error) {
 	address = normalizeAddress(address)
 	statusEndpoint := address + clusterStatusEndpoint
-	resp, err := makeHttpCall(statusEndpoint)
+	resp, err := makeHTTPCall(statusEndpoint)
 	if err != nil {
-		return ClusterState{}, errors.New("could not connect to node")
 		log.Println("could not connect to node")
+		return ClusterState{}, errors.New("could not connect to node")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusInternalServerError {
-		return ClusterState{}, errors.New("node has failed")
 		log.Println("node has failed")
+		return ClusterState{}, errors.New("node has failed")
 	}
 	var cs ClusterState
 	json.Unmarshal(body, &cs)
 	return cs, nil
 }
 
-func makeHttpCall(endpoint string) (*http.Response, error) {
+func makeHTTPCall(endpoint string) (*http.Response, error) {
 	var client = &http.Client{Timeout: httpTimeout}
 	resp, err := client.Get(endpoint)
 	return resp, err
@@ -113,35 +132,43 @@ func makeHttpCall(endpoint string) (*http.Response, error) {
 func getNodeStatus(address string) (NodeStatus, error) {
 	address = normalizeAddress(address)
 	statusEndpoint := address + nodeStatusEndpoint
-	resp, err := makeHttpCall(statusEndpoint)
+	resp, err := makeHTTPCall(statusEndpoint)
 	if err != nil {
-		return NodeStatus{}, errors.New("could not connect to node")
 		log.Println("could not connect to node")
+		return NodeStatus{}, errors.New("could not connect to node")
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusInternalServerError {
-		return NodeStatus{}, errors.New("node has failed")
 		log.Println("node has failed")
+		return NodeStatus{}, errors.New("node has failed")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return NodeStatus{}, errors.New(fmt.Sprintf("error reading body: %v", err))
-		log.Println("error reading body: %v", err)
+		log.Printf("error reading body: %v\n", err)
+		return NodeStatus{}, fmt.Errorf("error reading body: %v", err)
 	}
 	var ns NodeStatus
 	json.Unmarshal(body, &ns)
 	return ns, nil
 }
 
+// PrintMasterNodes prints all master nodes along with their children
 func PrintMasterNodes(ms map[string][]ElasticsearchNode) {
 	for master, nodes := range ms {
 		fmt.Printf("master: %s \n", master)
 		for i, node := range nodes {
-			fmt.Printf("  node %d: %s \n", i, node.Name)
+			nodeType := "node"
+			if node.Name == master {
+				nodeType = "master"
+			}
+			fmt.Printf("  node %d: %s - %s [%s]\n", i, node.Name, node.IPAddress,
+				nodeType)
 		}
 	}
 }
 
+// PrintFailures prints nodes which we failed to connect to
 func PrintFailures(failures []ElasticsearchNode) {
 	fmt.Println("Failed connecting to:")
 	for _, failure := range failures {
@@ -149,6 +176,7 @@ func PrintFailures(failures []ElasticsearchNode) {
 	}
 }
 
+// GatherMasters retruns a map with all master nodes along with their children
 func GatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
 	mappedMasters := make(map[string][]ElasticsearchNode)
 	for _, node := range nodes {
@@ -159,6 +187,7 @@ func GatherMasters(nodes []ElasticsearchNode) map[string][]ElasticsearchNode {
 	return mappedMasters
 }
 
+// AmIMaster checks if given Elasticseach address is a leader of the cluster
 func AmIMaster(myAddress string) (bool, error) {
 	nodeStatus, gNerr := getNodeStatus(myAddress)
 	clusterStatus, gCerr := getClusterState(myAddress)
@@ -184,10 +213,9 @@ func gatherFailures(nodes []ElasticsearchNode) []string {
 
 func normalizeAddress(address string) string {
 	httpPrefix := "http://"
-	startsWithHttp := strings.HasPrefix(address, httpPrefix)
-	if startsWithHttp {
+	startsWithHTTP := strings.HasPrefix(address, httpPrefix)
+	if startsWithHTTP {
 		return address
-	} else {
-		return (httpPrefix + address)
 	}
+	return (httpPrefix + address)
 }
