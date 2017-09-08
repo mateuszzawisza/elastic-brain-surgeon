@@ -72,13 +72,13 @@ const nodeClusterResponse = `{
   }
 }`
 
-var brokenCluster []ElasticsearchNode = []ElasticsearchNode{
+var brokenCluster = []ElasticsearchNode{
 	ElasticsearchNode{"Node1", 200, "Node1", 2, false},
 	ElasticsearchNode{"Node2", 200, "Node1", 2, false},
 	ElasticsearchNode{"Node3", 200, "Node3", 2, false},
 }
 
-var healthyCluster []ElasticsearchNode = []ElasticsearchNode{
+var healthyCluster = []ElasticsearchNode{
 	ElasticsearchNode{"Node1", 200, "Node1", 3, false},
 	ElasticsearchNode{"Node2", 200, "Node1", 3, false},
 	ElasticsearchNode{"Node3", 200, "Node1", 3, false},
