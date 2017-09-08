@@ -248,7 +248,7 @@ func mockNodeServerFailing() *httptest.Server {
 
 func mockNodeServerTimeout() *httptest.Server {
 	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2 * time.Second)
+		time.Sleep(6 * time.Second)
 		fmt.Fprintln(w, "`{}`")
 	}))
 	return node

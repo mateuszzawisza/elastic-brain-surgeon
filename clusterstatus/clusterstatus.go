@@ -14,7 +14,7 @@ import (
 const clusterStatusEndpoint = "/_cluster/state/nodes,master_node"
 const nodeStatusEndpoint = "/"
 
-var httpTimeout = time.Second * 1
+var httpTimeout = time.Second * 5
 
 // ClusterState is structure to keep response from /_cluster/state API call
 type ClusterState struct {
