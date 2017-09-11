@@ -50,8 +50,9 @@ type ElasticsearchNode struct {
 
 // CheckForSplitBrain checks if there is more then one leader in the cluster
 func CheckForSplitBrain(nodes []ElasticsearchNode) bool {
+	previousMasterNode := nodes[0].MasterNode
 	for i := 1; i < len(nodes); i++ {
-		if nodes[i].MasterNode != nodes[i-1].MasterNode {
+		if nodes[i].MasterNode != previousMasterNode {
 			return true
 		}
 	}

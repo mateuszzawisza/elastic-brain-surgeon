@@ -105,7 +105,6 @@ func TestFetchNodesArguments(t *testing.T) {
 	node1 := mockNodeServer(node1StatusResposnse, nodeClusterResponse)
 	defer node1.Close()
 	nodesSuccessfull, _ := FetchNodes([]string{node1.URL})
-	fmt.Println(nodesSuccessfull)
 	node := nodesSuccessfull[0]
 	if node.Name != expectedNode.Name {
 		t.Errorf("Node name mismatch. Expected '%s', but got %v",
