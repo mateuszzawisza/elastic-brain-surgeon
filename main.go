@@ -1,28 +1,31 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
 	"github.com/mateuszzawisza/elastic-brain-surgeon/clusterstatus"
 )
 
-const Version = "0.0.3"
+// Version of package
+const Version = "0.1.0"
 
 var esAddresses addresses
 var strict bool
-var printStatus bool
+var printJSON bool
 var version bool
 
-var exitStatus int = 0
+var exitStatus = 0
 
 func init() {
 	flag.Var(&esAddresses, "elasticsearch-list", "comma sperated list of elasticsearch instances addresses")
 	flag.BoolVar(&strict, "strict", false, "Strict exit status")
-	flag.BoolVar(&printStatus, "print", false, "Print cluster status")
+	flag.BoolVar(&printJSON, "json", false, "Output in JSON")
 	flag.BoolVar(&version, "version", false, "Print version")
 }
 
@@ -35,20 +38,28 @@ func main() {
 	nodes, nodesFailed := clusterstatus.FetchNodes(esAddresses)
 	split := clusterstatus.CheckForSplitBrain(nodes)
 	if split {
-		fmt.Println("The brain is split!")
-		printStatus = true
 		if strict {
 			exitStatus = 1
 		}
+	}
+
+	masters := clusterstatus.GatherMasters(nodes)
+	if printJSON {
+		jsonOutput, err := json.Marshal(masters)
+		if err != nil {
+			log.Panicf("Got error on json Marshal: %v", err)
+		}
+		os.Stdout.Write(jsonOutput)
 	} else {
-		fmt.Println("Everything is ok")
-	}
-	if printStatus {
-		masters := clusterstatus.GatherMasters(nodes)
+		if split {
+			fmt.Println("The brain is split!")
+		} else {
+			fmt.Println("Everything is ok")
+		}
 		clusterstatus.PrintMasterNodes(masters)
-	}
-	if len(nodesFailed) > 0 {
-		clusterstatus.PrintFailures(nodesFailed)
+		if len(nodesFailed) > 0 {
+			clusterstatus.PrintFailures(nodesFailed)
+		}
 	}
 	os.Exit(exitStatus)
 }
